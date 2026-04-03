@@ -1,0 +1,36 @@
+{
+  "name": "news-backend",
+  "version": "1.0.0",
+  "description": "This is the real time news application that is build using React for the frontend and Nodejs with Express for the backend.",
+  "keywords": [
+    "NodeJS",
+    "Express.js",
+    "mongodb",
+    "api",
+    "mongoose",
+    "express",
+    "newsapi"
+  ],
+  "license": "ISC",
+  "author": "Chittra Priya",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.3",
+    "nodemailer": "^8.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
