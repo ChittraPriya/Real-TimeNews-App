@@ -1,23 +1,31 @@
-const JWT_SECRET = require('../utils/config.js')
+const jwt = require("jsonwebtoken");
+const User = require("../models/userModel");
 
-const isAuthenticated = async(req,res,next) => {
-    //chck if the token is present in the cookie
-    const token = req.cookies && req.cookies.token
+const isAuthenticated = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
 
-    //if there is no token , return to the unauthorised user
-    if(!token){
-        return res.status(500).json({message: 'UnAuthorised'})
+    if (!token) {
+      return res.status(401).json({ message: "No token found" });
     }
 
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        //if the token is valid , attach the userId to the request object
-        req.body = decoded.userId
+    const user = await User.findById(decoded.id);
 
-        //call the next middleware or route handler\
-        next()
-    } catch (error) {
-        res.status(400).json({message:'Unauthorised', error: error.message })
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
     }
-}
+
+    req.user = user;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Invalid token",
+      error: error.message
+    });
+  }
+};
+
+module.exports = { isAuthenticated };

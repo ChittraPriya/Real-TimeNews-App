@@ -30,40 +30,95 @@ const authController = {
             res.status(500).json({message: "Error for Registering User", error: error.message})
         }
     },
-     login: async(req,res) => {
-        try {
-            //get details from the req body
-            const {email,password} = req.body;
+     login: async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-            //find the user by the email
-            const user = await User.findOne({email})
+    const user = await User.findOne({ email });
 
-            if(!user){
-                return res.status(400).json({message: "User Doesn't exists"})
-            }
+    if (!user) {
+      return res.status(400).json({
+        message: "User doesn't exist"
+      });
+    }
 
-            //compare the password
-            const isMatch = await bcrypt.compare(password, user.password)
+    const isMatch = await bcrypt.compare(password, user.password);
 
-            if(!isMatch){
-                return res.status(400),json({message:"Invalid Password"})
-            }
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Invalid Password"
+      });
+    }
 
-            //generate a token
-            const token = jwt.sign({userId : user._id},JWT_SECRET,{expiresIn : '1h'})
+    const token = jwt.sign(
+      { id: user._id },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-            //set a token as cookie
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: NODE_ENV === 'production',
-                sameSite: NODE_ENV === 'production' ? 'none' : "lax",
-                maxAge: 24* 60 * 60*1000
-            })
-            res.status(200).json({message:"Login Successfully"})
-        } catch (error) {
-            res.status(500).json({message: "Error for Registering User", error: error.message})
-        }
-    },
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: NODE_ENV === "production",
+      sameSite: NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.status(200).json({
+      message: "Login Successfully",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Login failed",
+      error: error.message
+    });
+  }
+},
+updateEmail: async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // 1. validate input
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // 2. safety check (VERY IMPORTANT)
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // 3. update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { email },
+      { returnDocument: "after" } 
+    );
+
+    // 4. check if user exists
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Email updated successfully",
+      email: updatedUser.email
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
+  }
+},
      logout : async(req,res) => {
         try {
             res.status(200).json({message:"Registered Successfully"})

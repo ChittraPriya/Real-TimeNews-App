@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
     }
 })
 
-const sendEmail = async(to,subject,articles) =>{
+const sendEmail = async(to,username,subject,articles) =>{
 
     const html = `
   <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -58,7 +58,7 @@ const sendEmail = async(to,subject,articles) =>{
         You're receiving this because of your news preferences.
       </p>
 
-      <p><b>NewsWave Team</b></p>
+      <p><b>Daily Express Team</b></p>
 
     </div>
     `;

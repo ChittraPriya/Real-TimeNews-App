@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const alertSchema = new mongoose.Schema(
+const alertHistorySchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -17,32 +17,29 @@ const alertSchema = new mongoose.Schema(
       type: String
     },
 
+    category: {
+      type: String
+    },
+
+    source: {
+      type: String, // api / admin / system
+      default: "api"
+    },
+
     link: {
       type: String
     },
 
-    categories: [
-      {
-        type: String
-      }
-    ],
-
-    type: {
-      type: String,
-      default: "news"
+    image: {
+      type: String
     },
 
     isRead: {
       type: Boolean,
       default: false
-    },
-    hidden: {
-  type: Boolean,
-  default: false
-}
-
+    }
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Alert", alertSchema);
+module.exports = mongoose.model("AlertHistory", alertHistorySchema);

@@ -1,13 +1,17 @@
 const mongoose  = require ('mongoose')
 const { MONGODB_URI, PORT } = require ('./utils/config.js')
 
-const app = require('./app.js')
+const { server } = require("./app");
 
 mongoose.connect(MONGODB_URI)
 .then(() => {
     console.log('Connected to MongoDB')
 
-app.listen((PORT), () => {
+// start cron jobs
+require('./jobs/cron');
+
+//server start
+server.listen((PORT), () => {
     console.log(`Server is Connected on the Port ${PORT}`)
 });
 
