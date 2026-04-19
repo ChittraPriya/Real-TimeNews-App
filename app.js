@@ -42,12 +42,11 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://https://realtime-news.netlify.app/"
-  ],
-  credentials: true
-}));;
+  origin: "https://realtime-news.netlify.app",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
 //middleware to parse the body of incoming request as Json
 app.use(express.json());
