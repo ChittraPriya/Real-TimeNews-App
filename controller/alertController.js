@@ -100,14 +100,21 @@ const alertController = {
   },
 
   // DELETE SINGLE ALERT
-   deleteSingleAlert: async (req, res) => {
+  deleteSingleAlert: async (req, res) => {
   try {
     const alertId = req.params.id;
 
     const result = await Alert.findOneAndUpdate(
-      { _id: alertId, userId: req.user._id },
-      { $set: { hidden: true } },
-      { returnDocument: "after" }
+      {
+        _id: alertId,
+        userId: req.user._id
+      },
+      {
+        $set: { hidden: true }
+      },
+      {
+        new: true
+      }
     );
 
     if (!result) {
