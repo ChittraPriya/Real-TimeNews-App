@@ -63,34 +63,42 @@ const getMyPreference = async (req, res) => {
     }
 };
 const updatePreference = async (req, res) => {
-    try {
-        const { categories, frequency, notifications, time } = req.body;
+  try {
+    const {
+      categories,
+      frequency,
+      notifications,
+      time
+    } = req.body;
 
-const updated = await Preference.findOneAndUpdate(
-  { userId: req.user._id },
-  {
-    categories,
-    frequency,
-    time,
-    notifications
-  },
-  { returnDocument: "after" }
-);
-        if (!updated) {
-            return res.status(404).json({ message: "Preference not found" });
+    const updated = await Preference.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        categories,
+        frequency,
+        time,
+        notifications: {
+          email: notifications?.email ?? false,
+          push: notifications?.push ?? false
         }
+      },
+      {
+        new: true,
+        upsert: true
+      }
+    );
 
-        res.status(200).json({
-            message: "Preference updated successfully",
-            preference: updated
-        });
+    res.status(200).json({
+      message: "Preference updated successfully",
+      preference: updated
+    });
 
-    } catch (error) {
-        res.status(500).json({
-            message: "Updating Preference failed",
-            error: error.message
-        });
-    }
+  } catch (error) {
+    res.status(500).json({
+      message: "Updating Preference failed",
+      error: error.message
+    });
+  }
 };
 const deletePreference = async (req, res) => {
   try {
