@@ -13,9 +13,6 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 
-app.get("/", (req, res) => {
-  res.send("News Backend is running ");
-});
 
 //Create socket server
 const io = new Server(server, {
@@ -45,14 +42,21 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: [
+    "http://localhost:5173",
+    "https://real-timenews-app.onrender.com"
+  ],
   credentials: true
-}));
+}));;
 
 //middleware to parse the body of incoming request as Json
 app.use(express.json());
 
 app.use(cookieParser());
+
+app.get("/", (req, res) => {
+  res.send("News Backend is running");
+});
 
 app.use('/api/v1/auth', authRouter)
 app.use("/api/v1/admin", adminRouter);
