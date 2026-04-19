@@ -225,9 +225,7 @@ const adminController = {
       const result = {};
 
       news.forEach((item) => {
-        const cat =
-          item.category ||
-          "General";
+        const cat = item.category?.toLowerCase().trim() || "general";
 
         if (!result[cat]) {
           result[cat] = {
