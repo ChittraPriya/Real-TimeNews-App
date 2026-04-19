@@ -4,6 +4,6 @@ const { getDashboardNews } = require('../controller/dashboardContoller');
 
 const dashboardRouter = express.Router();
 
-dashboardRouter.get('/dashboard', isAuthenticated,getDashboardNews);
+dashboardRouter.get('/', isAuthenticated,getDashboardNews);
 
 module.exports= dashboardRouter;

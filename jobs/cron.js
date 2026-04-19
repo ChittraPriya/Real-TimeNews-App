@@ -1,108 +1,78 @@
 const cron = require("node-cron");
 const News = require("../models/newsModel");
 const Preference = require("../models/preferencesModel");
-const fetchNews = require("../utils/news");
 const sendEmail = require("../utils/email");
 const Alert = require("../models/alertsModel");
-
 const { io } = require("../app");
 
-/* RUN EVERY MINUTE */
 cron.schedule("* * * * *", async () => {
   try {
     console.log("Running News Cron...");
 
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const adminNews = await News.find().sort({ createdAt: -1 });
 
-    const currentTime = `${String(currentHour).padStart(2, "0")}:${String(
-      currentMinute,
-    ).padStart(2, "0")}`;
+    const prefs = await Preference.find({
+      "notifications.email": true,
+    }).populate("userId");
 
-    const categories = [
-      "technology",
-      "sports",
-      "business",
-      "health",
-      "science",
-      "entertainment",
-      "politics",
-      "world",
-    ];
+    for (const pref of prefs) {
+      if (!pref.userId) continue;
 
-    for (const cat of categories) {
-      const apiNews = await fetchNews([cat]);
+      // ensure array exists (IMPORTANT FIX)
+      pref.sentNewsIds = pref.sentNewsIds || [];
 
-      if (!apiNews || !Array.isArray(apiNews)) continue;
+      // STEP 1: match news with user preference
+      const matchedNews = adminNews.filter((news) =>
+        pref.categories.some(
+          (cat) =>
+            cat.toLowerCase() === news.category.toLowerCase()
+        )
+      );
 
-      for (const item of apiNews) {
-        const exists = await News.findOne({ title: item.title });
-        if (exists) continue;
+      // STEP 2: remove already sent news
+      const newNews = matchedNews.filter(
+        (news) => !pref.sentNewsIds.includes(news._id.toString())
+      );
 
-        /* SAVE NEWS */
-        await News.create({
-          title: item.title,
-          description: item.description,
-          category: cat,
-          link: item.url,
-          image: item.urlToImage,
-          source: "api",
-        });
+      // ❌ STOP if nothing new
+      if (newNews.length === 0) continue;
 
-        /* FIND USERS */
-        const prefs = await Preference.find({
-          categories: { $in: [cat] },
-        }).populate("userId");
+      console.log("Sending to:", pref.userId.email);
 
-        for (const p of prefs) {
-          if (!p.userId) continue;
+      // STEP 3: EMAIL NOTIFICATION
+      await sendEmail(
+        pref.userId.email,
+        pref.userId.name,
+        "Your Personalized News Feed",
+        newNews
+      );
 
-          /* EMAIL */
-          if (p.notifications?.email === true) {
-            const shouldEmail =
-              p.frequency === "instant" ||
-              (p.frequency === "hourly" && currentMinute === 0) ||
-              (p.frequency === "daily" && p.time === currentTime);
+      // STEP 4: PUSH NOTIFICATION (Socket.IO)
+      io.to(pref.userId._id.toString()).emit("new-notification", {
+        title: "Breaking News",
+        message: newNews[0]?.title || "New news available",
+        news: newNews,
+      });
 
-            if (shouldEmail) {
-              await sendEmail(
-                p.userId.email,
-                "Breaking News Alert",
-                `${item.title}<br/><br/>Read More: ${item.url}`,
-              );
-            }
-          }
+      // STEP 5: SAVE ALERT IN DB
+      const alert = await Alert.create({
+        userId: pref.userId._id,
+        title: `Breaking News (${newNews.length})`,
+        description: newNews[0]?.title || "New updates available",
+        link: newNews[0]?.link || "",
+        categories: pref.categories || [],
+        type: "news",
+      });
 
-          /* PUSH */
-          if (p.notifications?.push === true && io) {
-            io.to(p.userId._id.toString()).emit("notification", {
-              title: item.title,
-              description: item.description,
-              category: cat,
-              link: item.url,
-            });
-          }
+      // STEP 6: STORE SENT NEWS IDS (PREVENT DUPLICATE EMAILS)
+      pref.sentNewsIds = [
+        ...pref.sentNewsIds,
+        ...newNews.map((n) => n._id.toString()),
+      ];
 
-          /* ALERT STORE */
-          const emailOn = p.notifications?.email === true;
-          const pushOn = p.notifications?.push === true;
+      await pref.save();
 
-          if (emailOn || pushOn) {
-            await Alert.create({
-              userId: p.userId._id,
-              title: item.title,
-              description: item.description,
-              link: item.url,
-              categories: [cat],
-              type: "news",
-              source: "api",
-              isRead: false,
-              hidden: false,
-            });
-          }
-        }
-      }
+      console.log("Sent email + push to:", pref.userId.email);
     }
   } catch (error) {
     console.log("Cron Error:", error.message);

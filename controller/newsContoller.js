@@ -1,156 +1,122 @@
-const Preference =
-require("../models/preferencesModel");
+const Preference = require("../models/preferencesModel");
 
-const News =
-require("../models/newsModel");
+const News = require("../models/newsModel");
 
-const fetchNews =
-require("../utils/news");
+const fetchNews = require("../utils/news");
 
 /* ALL NEWS */
-const getAllNews =
-async (req, res) => {
+const getAllNews = async (req, res) => {
   try {
+    // 1. ALWAYS get admin news first (from DB)
+    const adminNews = await News.find().sort({ createdAt: -1 });
+
+    let apiNews = [];
+
     const categories = [
       "sports",
       "technology",
       "business",
-      "health"
+      "health",
+      "science",
+      "entertainment",
+      "politics",
+      "world"
     ];
 
-    let allNews = [];
+    // 2. TRY API (but DO NOT block admin news if it fails)
+    try {
+      for (const cat of categories) {
+        const data = await fetchNews([cat]);
 
-    for (const cat of categories) {
-
-      const apiNews =
-        await fetchNews([cat]);
-
-      for (const item of apiNews) {
-
-        const exists =
-          await News.findOne({
-            title: item.title
-          });
-
-        if (!exists) {
-          await News.create({
-            title: item.title,
-            description:
-              item.description,
-            category: cat,
-            link: item.url,
-            image:
-              item.urlToImage,
-            source: "api"
-          });
+        if (Array.isArray(data)) {
+          apiNews.push(
+            ...data.map(item => ({
+              title: item.title,
+              description: item.description,
+              category: cat,
+              link: item.url,
+              image: item.urlToImage,
+              source: "api"
+            }))
+          );
         }
       }
-
-      allNews.push(...apiNews);
+    } catch (err) {
+      console.log("API failed (ignored):", err.message);
     }
 
-    const newsFromDB = await News.find().sort({ createdAt: -1 });
+    // 3. format admin news
+    const formattedAdmin = adminNews.map(n => ({
+      ...n._doc,
+      source: "admin"
+    }));
 
-res.json({
-  success: true,
-  news: newsFromDB
-});
+    // 4. FINAL RESPONSE (admin ALWAYS included)
+    res.json({
+      success: true,
+      news: [...formattedAdmin, ...apiNews]
+    });
 
   } catch (error) {
     res.status(500).json({
-      message:
-        error.message
+      message: error.message
     });
   }
 };
-
 /* USER NEWS */
-const getUserNews =
-async (req, res) => {
+const getUserNews = async (req, res) => {
   try {
+    const preference = await Preference.findOne({
+      userId: req.user._id,
+    });
 
-    if (!req.user) {
-      return res.status(401)
-      .json({
-        message:
-          "Unauthorized"
-      });
-    }
+    const categories = (preference?.categories || []).map((c) =>
+      c.toLowerCase(),
+    );
 
-    const preference =
-      await Preference.findOne({
-        userId:
-          req.user._id
-      });
+    // 1. ADMIN NEWS (DB)
+    const adminNews = await News.find({
+      category: { $in: categories },
+    }).sort({ createdAt: -1 });
 
-    if (
-      !preference ||
-      !preference.categories
-        ?.length
-    ) {
-      return res.status(400)
-      .json({
-        message:
-          "No preferences"
-      });
-    }
+    // 2. API NEWS (LIVE, NOT SAVED)
+    let apiNews = [];
 
-    let allNews = [];
+    for (const cat of categories) {
+      const data = await fetchNews([cat]);
 
-    for (const cat of
-      preference.categories
-    ) {
-
-      const apiNews =
-        await fetchNews([cat]);
-
-      for (const item of apiNews) {
-
-        const exists =
-          await News.findOne({
-            title:
-              item.title
-          });
-
-        if (!exists) {
-          await News.create({
-            title:
-              item.title,
-            description:
-              item.description,
-            category:
-              cat,
-            link:
-              item.url,
-            image:
-              item.urlToImage,
-            source:
-              "api"
-          });
-        }
+      if (Array.isArray(data)) {
+        apiNews.push(
+          ...data.map((item) => ({
+            title: item.title,
+            description: item.description,
+            category: cat,
+            link: item.url,
+            image: item.urlToImage,
+            source: "api",
+          })),
+        );
       }
-
-      allNews.push(...apiNews);
     }
 
-  const news = await News.find({
-  category: { $in: preference.categories }
-}).sort({ createdAt: -1 });
+    // 3. MERGE BOTH
+    const allNews = [...adminNews, ...apiNews];
 
-res.json({
-  success: true,
-  news
-});
+    // 4. SORT BY LATEST (optional)
+    allNews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+    res.json({
+      success: true,
+      news: allNews,
+    });
   } catch (error) {
     res.status(500).json({
-      message:
-        error.message
+      message: error.message,
     });
   }
 };
 
 module.exports = {
   getAllNews,
-  getUserNews
+  getUserNews,
 };

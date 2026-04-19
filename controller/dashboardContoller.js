@@ -7,25 +7,30 @@ const getDashboardNews = async (req, res) => {
       userId: req.user._id
     });
 
-    console.log("Preference:", preference);
+    const categories = (preference?.categories || []).map(c =>
+      c.toLowerCase()
+    );
 
-    const categories = preference?.categories || [];
+    let news;
 
-    const adminNews = await News.find({
-      category: { $in: categories }
-    });
+    if (categories.length === 0) {
+      // ALL admin news
+      news = await News.find()
+        .sort({ createdAt: -1 });
+    } else {
+      // FILTER ONLY ADMIN NEWS
+      news = await News.find({
+        category: { $in: categories }
+      }).sort({ createdAt: -1 });
+    }
 
-    res.status(200).json({
-      news: adminNews
-    });
+    res.json({ news });
 
   } catch (error) {
-    console.log(error);
-
     res.status(500).json({
       message: error.message
     });
   }
 };
 
-module.exports = { getDashboardNews };
+module.exports = {getDashboardNews}

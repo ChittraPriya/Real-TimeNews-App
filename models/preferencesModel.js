@@ -4,7 +4,7 @@ const preferenceModel = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
+      ref: "User",
     },
 
     categories: [String],
@@ -12,21 +12,19 @@ const preferenceModel = new mongoose.Schema(
     frequency: {
       type: String,
       enum: ["instant", "hourly", "daily"],
-      default: "daily"
+      default: "daily",
     },
 
     notifications: {
-      email: {
-        type: Boolean,
-        default: false
-      },
-      push: {
-        type: Boolean,
-        default: false
-      }
-    }
+      email: Boolean,
+      push: Boolean,
+    },
+    sentNewsIds: {
+      type: [String],
+      default: [],
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Preference", preferenceModel);
