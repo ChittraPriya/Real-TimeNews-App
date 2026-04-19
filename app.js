@@ -13,6 +13,10 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 
+app.get("/", (req, res) => {
+  res.send("News Backend is running ");
+});
+
 //Create socket server
 const io = new Server(server, {
   cors: {
