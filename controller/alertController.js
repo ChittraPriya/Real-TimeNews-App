@@ -64,7 +64,7 @@ const alertController = {
     try {
       await Alert.updateMany(
         { userId: req.user._id, isRead: false },
-        { $set: { isRead: true } }
+        { $set: { isRead: false } }
       );
 
       res.status(200).json({
