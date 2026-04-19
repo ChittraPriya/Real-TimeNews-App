@@ -49,10 +49,12 @@ async (req, res) => {
       allNews.push(...apiNews);
     }
 
-    res.json({
-      success: true,
-      news: allNews
-    });
+    const newsFromDB = await News.find().sort({ createdAt: -1 });
+
+res.json({
+  success: true,
+  news: newsFromDB
+});
 
   } catch (error) {
     res.status(500).json({
@@ -131,10 +133,14 @@ async (req, res) => {
       allNews.push(...apiNews);
     }
 
-    res.json({
-      success: true,
-      news: allNews
-    });
+  const news = await News.find({
+  category: { $in: preference.categories }
+}).sort({ createdAt: -1 });
+
+res.json({
+  success: true,
+  news
+});
 
   } catch (error) {
     res.status(500).json({
