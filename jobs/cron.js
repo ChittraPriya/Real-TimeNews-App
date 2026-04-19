@@ -17,7 +17,7 @@ cron.schedule("* * * * *", async () => {
     const currentMinute = now.getMinutes();
 
     const currentTime = `${String(currentHour).padStart(2, "0")}:${String(
-      currentMinute
+      currentMinute,
     ).padStart(2, "0")}`;
 
     const categories = [
@@ -32,13 +32,11 @@ cron.schedule("* * * * *", async () => {
     ];
 
     for (const cat of categories) {
-
       const apiNews = await fetchNews([cat]);
 
       if (!apiNews || !Array.isArray(apiNews)) continue;
 
       for (const item of apiNews) {
-
         const exists = await News.findOne({ title: item.title });
         if (exists) continue;
 
@@ -58,50 +56,54 @@ cron.schedule("* * * * *", async () => {
         }).populate("userId");
 
         for (const p of prefs) {
-  if (!p.userId) continue;
+          if (!p.userId) continue;
 
-  /* EMAIL */
-  if (p.notifications?.email === true) {
-    const shouldEmail =
-      p.frequency === "instant" ||
-      (p.frequency === "hourly" && currentMinute === 0) ||
-      (p.frequency === "daily" && p.time === currentTime);
+          /* EMAIL */
+          if (p.notifications?.email === true) {
+            const shouldEmail =
+              p.frequency === "instant" ||
+              (p.frequency === "hourly" && currentMinute === 0) ||
+              (p.frequency === "daily" && p.time === currentTime);
 
-    if (shouldEmail) {
-      await sendEmail(
-        p.userId.email,
-        "Breaking News Alert",
-        `${item.title}<br/><br/>Read More: ${item.url}`
-      );
-    }
-  }
+            if (shouldEmail) {
+              await sendEmail(
+                p.userId.email,
+                "Breaking News Alert",
+                `${item.title}<br/><br/>Read More: ${item.url}`,
+              );
+            }
+          }
 
-  /* PUSH */
-  if (p.notifications?.push === true && io) {
-    io.to(p.userId._id.toString()).emit("notification", {
-      title: item.title,
-      description: item.description,
-      category: cat,
-      link: item.url,
-    });
-  }
+          /* PUSH */
+          if (p.notifications?.push === true && io) {
+            io.to(p.userId._id.toString()).emit("notification", {
+              title: item.title,
+              description: item.description,
+              category: cat,
+              link: item.url,
+            });
+          }
 
-  /* ALERT STORE */
-  await Alert.create({
-    userId: p.userId._id,
-    title: item.title,
-    description: item.description,
-    link: item.url,
-    categories: [cat],
-    type: "news",
-    source: "api",
-    isRead: false,
-    hidden: false,
-  });
-}
+          /* ALERT STORE */
+          const emailOn = p.notifications?.email === true;
+          const pushOn = p.notifications?.push === true;
+
+          if (emailOn || pushOn) {
+            await Alert.create({
+              userId: p.userId._id,
+              title: item.title,
+              description: item.description,
+              link: item.url,
+              categories: [cat],
+              type: "news",
+              source: "api",
+              isRead: false,
+              hidden: false,
+            });
+          }
+        }
       }
     }
-
   } catch (error) {
     console.log("Cron Error:", error.message);
   }

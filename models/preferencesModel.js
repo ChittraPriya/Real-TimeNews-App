@@ -18,7 +18,7 @@ const preferenceModel = new mongoose.Schema(
     notifications: {
       email: {
         type: Boolean,
-        default: true
+        default: false
       },
       push: {
         type: Boolean,
