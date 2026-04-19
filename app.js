@@ -44,7 +44,7 @@ app.set("io", io);
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://real-timenews-app.onrender.com"
+    "https://https://realtime-news.netlify.app/"
   ],
   credentials: true
 }));;
