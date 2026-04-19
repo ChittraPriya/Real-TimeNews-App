@@ -8,6 +8,7 @@ const alertRouter = require('./routes/alertRoutes');
 const adminRouter = require('./routes/adminRoutes')
 const { Server } = require("socket.io");
 const http = require("http");
+const dashboardRouter = require('./routes/dashboardRoute');
 
 
 const app = express();
@@ -60,6 +61,7 @@ app.get("/", (req, res) => {
 app.use('/api/v1/auth', authRouter)
 app.use("/api/v1/admin", adminRouter);
 app.use('/api/v1/preferences', preferenceRouter)
+app.use("/api/v1/dashboard", dashboardRouter);
 app.use('/api/v1/news', newsRouter)
 app.use('/api/v1/alerts',alertRouter)
 
