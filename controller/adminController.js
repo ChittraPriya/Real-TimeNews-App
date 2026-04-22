@@ -2,197 +2,162 @@ const User = require("../models/userModel");
 const Alert = require("../models/alertsModel");
 const News = require("../models/newsModel");
 const Preference = require("../models/preferencesModel");
-const sendEmail = require("../utils/email")
+const sendEmail = require("../utils/email");
 
 const adminController = {
-
   // CREATE NEWS
   createNews: async (req, res) => {
-  try {
-    const { title, description, category, link } = req.body;
+    const io = req.app.get("io");
+    try {
+      const {title,description,category,link,desc1,desc2,desc3,desc4,desc5,desc6,desc7} = req.body;
 
-    const lower = category.toLowerCase().trim();
+      const lower = category?.toLowerCase()?.trim() || "";
 
-    console.log("CATEGORY:", lower);
+      const news = await News.create({
+        title: title || "",
+        description: description || "",
+        category: lower,
+        link: link || "",
+        source: "admin",
 
-    // save news
-    const news = await News.create({
-      title,
-      description,
-      category: lower,
-      link,
-      source: "admin",
-    });
+        // image upload
+        image: req.file ? req.file.filename : "",
 
-    // find matching users
-    const prefs = await Preference.find({
-      categories: { $in: [lower] },
-    }).populate("userId");
-
-    console.log("MATCHED USERS:", prefs.length);
-
-    for (const p of prefs) {
-      if (!p.userId || !p.userId.email) continue;
-
-      // create alert
-      await Alert.create({
-        userId: p.userId._id,
-        title,
-        description,
-        link,
-        isRead: false,
-        hidden: false,
+        // coverage fields
+        desc1: req.body.desc1 || "",
+        desc2: req.body.desc2 || "",
+        desc3: req.body.desc3 || "",
+        desc4: req.body.desc4 || "",
+        desc5: req.body.desc5 || "",
+        desc6: req.body.desc6 || "",
+        desc7: req.body.desc7 || "",
       });
 
-      // send email (IMPORTANT: use correct function name)
-      await sendEmail(
-  p.userId.email,
-  p.userId.name,
-  "Breaking News",
-  [
-    {
-      title,
-      description,
-      link,
-      image_url: null
+      // find matching users
+      const prefs = await Preference.find({
+        categories: { $in: [lower] },
+      }).populate("userId");
+
+      for (const p of prefs) {
+        if (!p.userId) continue;
+
+        // get user settings
+        const userSetting = await Preference.findOne({
+          userId: p.userId._id,
+        });
+
+        /* ---------------- PUSH NOTIFICATION ---------------- */
+        if (userSetting?.notifications?.push) {
+          await Alert.create({
+            userId: p.userId._id,
+            title,
+            description,
+            link,
+            isRead: false,
+            hidden: false,
+          });
+
+          // socket notification
+          io.to(p.userId._id.toString()).emit("notification", {
+            title,
+            description,
+          });
+        }
+
+        /* ---------------- EMAIL NOTIFICATION ---------------- */
+        if (userSetting?.notifications?.email && p.userId.email) {
+          await sendEmail(p.userId.email, p.userId.name, "Breaking News", [
+            {
+              title,
+              description,
+              link,
+              image: req.file ? req.file.filename : "",
+            },
+          ]);
+        }
+      }
+
+      res.status(201).json({
+        message: "News Published Successfully",
+        data: news,
+      });
+    } catch (error) {
+      console.log("CREATE NEWS ERROR:", error);
+      res.status(500).json({
+        message: "Failed to publish news",
+      });
     }
-  ]
-);
-
-      console.log("Alert sent to:", p.userId.email);
-    }
-
-    res.status(201).json({
-      message: "News Published Successfully",
-      data: news,
-    });
-  } catch (error) {
-    console.log("CREATE NEWS ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to publish news",
-    });
-  }
-},
+  },
   // USERS
   getUsers: async (req, res) => {
     try {
-      const users =
-        await User.find();
-
+      const users = await User.find();
       res.json(users);
     } catch (error) {
       res.status(500).json({
-        message:
-          "Failed to get users"
+        message: "Failed to get users",
       });
     }
   },
 
-  // DELETE
+  // DELETE NEWS
   deleteNews: async (req, res) => {
     try {
-      await News.findByIdAndDelete(
-        req.params.id
-      );
+      await News.findByIdAndDelete(req.params.id);
 
       res.json({
-        message:
-          "News Deleted"
+        message: "News Deleted",
       });
-
     } catch (error) {
       res.status(500).json({
-        message:
-          "Delete Failed"
+        message: "Delete Failed",
       });
     }
   },
 
-  // STATS
-  stats: async (req, res) => {
-    try {
-      const totalUsers =
-        await User.countDocuments();
-
-      const totalAlerts =
-        await Alert.countDocuments();
-
-      const totalNews =
-        await News.countDocuments();
-
-      const todayUsers =
-        await User.countDocuments({
-          createdAt: {
-            $gte: new Date(
-              new Date().setHours(
-                0,0,0,0
-              )
-            )
-          }
-        });
-
-      res.json({
-        totalUsers,
-        totalAlerts,
-        totalNews,
-        todayUsers
-      });
-
-    } catch (error) {
-      res.status(500).json({
-        message:
-          "Failed to load stats"
-      });
-    }
-  },
-
-  // ALERTS
-  getAlertAdmin: async (req, res) => {
-    try {
-      const alerts =
-        await Alert.find()
-        .populate(
-          "userId",
-          "name email"
-        )
-        .sort({
-          createdAt: -1
-        });
-
-      res.json(alerts);
-
-    } catch (error) {
-      res.status(500).json({
-        message:
-          "Failed to fetch alerts"
-      });
-    }
-  },
-
-  // UPDATE
+  // UPDATE NEWS
   updateNews: async (req, res) => {
     try {
-      const updated =
-        await News.findByIdAndUpdate(
-          req.params.id,
-          req.body,
-          {
-            returnDocument: "after",
-            runValidators: true
-          }
-        );
+      const existing = await News.findById(req.params.id);
 
-      res.json({
-        message:
-          "News updated",
-        data: updated
+      if (!existing) {
+        return res.status(404).json({ message: "News not found" });
+      }
+
+      const updateData = {
+        title: req.body.title || existing.title,
+        description: req.body.description || existing.description,
+        category: req.body.category || existing.category,
+        link: req.body.link || existing.link,
+
+        // coverage fields (IMPORTANT FIX)
+        desc1: req.body.desc1 !== undefined ? req.body.desc1 : existing.desc1,
+        desc2: req.body.desc2 !== undefined ? req.body.desc2 : existing.desc2,
+        desc3: req.body.desc3 !== undefined ? req.body.desc3 : existing.desc3,
+        desc4: req.body.desc4 !== undefined ? req.body.desc4 : existing.desc4,
+        desc5: req.body.desc5 !== undefined ? req.body.desc5 : existing.desc5,
+        desc6: req.body.desc6 !== undefined ? req.body.desc6 : existing.desc6,
+        desc7: req.body.desc7 !== undefined ? req.body.desc7 : existing.desc7,
+      };
+
+      // image update (only if new file uploaded)
+      if (req.file) {
+        updateData.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      }
+
+      const updated = await News.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
       });
 
+      res.json({
+        message: "News updated successfully",
+        data: updated,
+      });
     } catch (error) {
+      console.log("UPDATE NEWS ERROR:", error);
       res.status(500).json({
-        message:
-          "Update Failed"
+        message: "Update Failed",
       });
     }
   },
@@ -200,18 +165,55 @@ const adminController = {
   // GET NEWS
   getAllNews: async (req, res) => {
     try {
-      const news =
-        await News.find()
-        .sort({
-          createdAt: -1
-        });
+      const news = await News.find().sort({
+        createdAt: -1,
+      });
 
       res.json(news);
-
     } catch (error) {
       res.status(500).json({
-        message:
-          "Failed to fetch news"
+        message: "Failed to fetch news",
+      });
+    }
+  },
+
+  // STATS
+  stats: async (req, res) => {
+    try {
+      const totalUsers = await User.countDocuments();
+      const totalAlerts = await Alert.countDocuments();
+      const totalNews = await News.countDocuments();
+
+      const todayUsers = await User.countDocuments({
+        createdAt: {
+          $gte: new Date(new Date().setHours(0, 0, 0, 0)),
+        },
+      });
+
+      res.json({
+        totalUsers,
+        totalAlerts,
+        totalNews,
+        todayUsers,
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to load stats",
+      });
+    }
+  },
+
+  // ADMIN ALERTS
+  getAlertAdmin: async (req, res) => {
+    try {
+      const alerts = await Alert.find().populate("userId", "name email").sort({
+        createdAt: -1,
+      });
+
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch alerts",
       });
     }
   },
@@ -219,8 +221,7 @@ const adminController = {
   // ANALYTICS
   getAnalytics: async (req, res) => {
     try {
-      const news =
-        await News.find();
+      const news = await News.find();
 
       const result = {};
 
@@ -230,47 +231,27 @@ const adminController = {
         if (!result[cat]) {
           result[cat] = {
             total: 0,
-            api: 0,
-            admin: 0
+            admin: 0,
           };
         }
 
         result[cat].total++;
-
-        if (
-          item.source === "api"
-        ) {
-          result[cat].api++;
-        } else {
-          result[cat].admin++;
-        }
+        result[cat].admin++;
       });
 
-      const finalData =
-        Object.entries(
-          result
-        ).map(
-          ([category, val]) => ({
-            category,
-            total:
-              val.total,
-            api:
-              val.api,
-            admin:
-              val.admin
-          })
-        );
+      const finalData = Object.entries(result).map(([category, val]) => ({
+        category,
+        total: val.total,
+        admin: val.admin,
+      }));
 
       res.json(finalData);
-
     } catch (error) {
       res.status(500).json({
-        message:
-          error.message
+        message: error.message,
       });
     }
-  }
-
+  },
 };
 
 module.exports = adminController;

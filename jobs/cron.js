@@ -9,70 +9,93 @@ cron.schedule("* * * * *", async () => {
   try {
     console.log("Running News Cron...");
 
+    // Get latest news once
     const adminNews = await News.find().sort({ createdAt: -1 });
 
+    // Get users who want email notifications
     const prefs = await Preference.find({
       "notifications.email": true,
     }).populate("userId");
 
     for (const pref of prefs) {
-      if (!pref.userId) continue;
+      try {
+        if (!pref.userId) continue;
 
-      // ensure array exists (IMPORTANT FIX)
-      pref.sentNewsIds = pref.sentNewsIds || [];
+        const userId = pref.userId._id.toString();
+        const userEmail = pref.userId.email;
 
-      // STEP 1: match news with user preference
-      const matchedNews = adminNews.filter((news) =>
-        pref.categories.some(
-          (cat) =>
-            cat.toLowerCase() === news.category.toLowerCase()
-        )
-      );
+        // Ensure array exists
+        const sentIds = new Set(
+          (pref.sentNewsIds || []).map((id) => id.toString())
+        );
 
-      // STEP 2: remove already sent news
-      const newNews = matchedNews.filter(
-        (news) => !pref.sentNewsIds.includes(news._id.toString())
-      );
+        // Match news by category
+        const matchedNews = adminNews.filter((news) =>
+          (pref.categories || []).some(
+            (cat) => cat.toLowerCase() === news.category.toLowerCase()
+          )
+        );
 
-      // ❌ STOP if nothing new
-      if (newNews.length === 0) continue;
+        // Filter only unsent news
+        const newNews = matchedNews.filter(
+          (news) => !sentIds.has(news._id.toString())
+        );
 
-      console.log("Sending to:", pref.userId.email);
+        if (!newNews.length) continue;
 
-      // STEP 3: EMAIL NOTIFICATION
-      await sendEmail(
-        pref.userId.email,
-        pref.userId.name,
-        "Your Personalized News Feed",
-        newNews
-      );
+        console.log("Sending to:", userEmail);
 
-      // STEP 4: PUSH NOTIFICATION (Socket.IO)
-      io.to(pref.userId._id.toString()).emit("new-notification", {
-        title: "Breaking News",
-        message: newNews[0]?.title || "New news available",
-        news: newNews,
-      });
+        // Safe format
+        const safeNews = newNews.map((n) => ({
+          title: n.title,
+          description: n.description,
+          link: n.link,
+          category: n.category,
+          image:
+            typeof n.image === "string" && n.image
+              ? `${process.env.BASE_URL}/uploads/${n.image}`
+              : null,
+        }));
 
-      // STEP 5: SAVE ALERT IN DB
-      const alert = await Alert.create({
-        userId: pref.userId._id,
-        title: `Breaking News (${newNews.length})`,
-        description: newNews[0]?.title || "New updates available",
-        link: newNews[0]?.link || "",
-        categories: pref.categories || [],
-        type: "news",
-      });
+        // 1. SEND EMAIL
+        await sendEmail(
+          userEmail,
+          pref.userId.name,
+          "Your Personalized News Feed",
+          safeNews
+        );
 
-      // STEP 6: STORE SENT NEWS IDS (PREVENT DUPLICATE EMAILS)
-      pref.sentNewsIds = [
-        ...pref.sentNewsIds,
-        ...newNews.map((n) => n._id.toString()),
-      ];
+        // 2. SOCKET NOTIFICATION
+        io.to(userId).emit("new-notification", {
+          title: "Breaking News",
+          message: newNews[0]?.title || "New news available",
+          news: safeNews,
+        });
 
-      await pref.save();
+        // 3. ALERT DB
+        await Alert.create({
+          userId,
+          title: `Breaking News (${newNews.length})`,
+          description: newNews[0]?.title || "New updates available",
+          link: newNews[0]?.link || "",
+          categories: pref.categories || [],
+          type: "news",
+        });
 
-      console.log("Sent email + push to:", pref.userId.email);
+        // 4. ATOMIC UPDATE (prevents duplicates)
+        await Preference.updateOne(
+          { _id: pref._id },
+          {
+            $addToSet: {
+              sentNewsIds: { $each: newNews.map((n) => n._id.toString()) },
+            },
+          }
+        );
+
+        console.log("Sent successfully to:", userEmail);
+      } catch (userError) {
+        console.log("User cron error:", userError.message);
+      }
     }
   } catch (error) {
     console.log("Cron Error:", error.message);

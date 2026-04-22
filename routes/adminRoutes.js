@@ -1,7 +1,7 @@
 const express = require("express");
 
 const { isAuthenticated } = require("../middleware/auth");
-
+const upload = require("../middleware/multer");
 const { isAdmin } = require("../middleware/admin");
 
 const {
@@ -18,9 +18,9 @@ const {
 const adminRouter =express.Router();
 
 /* NEWS */
-adminRouter.post("/news",isAuthenticated,isAdmin,createNews);
+adminRouter.post("/news",isAuthenticated,isAdmin,upload.single("image"),createNews);
 adminRouter.get("/news",isAuthenticated,isAdmin,getAllNews);
-adminRouter.put("/news/:id",isAuthenticated,isAdmin,updateNews);
+adminRouter.put("/news/:id",isAuthenticated,isAdmin,upload.single("image"),updateNews);
 adminRouter.delete("/news/:id",isAuthenticated,isAdmin,deleteNews);
 
 /* USERS */

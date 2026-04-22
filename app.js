@@ -9,6 +9,7 @@ const adminRouter = require('./routes/adminRoutes')
 const { Server } = require("socket.io");
 const http = require("http");
 const dashboardRouter = require('./routes/dashboardRoute');
+const path = require("path");
 
 
 const app = express();
@@ -19,10 +20,10 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: ["http://localhost:5173",
-      "https://realtime-news.netlify.app/",
+      // "https://realtime-news.netlify.app/",
     ],
     credentials: true,
-    methods: ["GET", "POST"]
+    // methods: ["GET", "POST"]
   }
 });
 
@@ -68,11 +69,14 @@ app.get("/", (req, res) => {
   res.send("News Backend is running");
 });
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 app.use('/api/v1/auth', authRouter)
 app.use("/api/v1/admin", adminRouter);
 app.use('/api/v1/preferences', preferenceRouter)
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use('/api/v1/news', newsRouter)
 app.use('/api/v1/alerts',alertRouter)
+
 
 module.exports = { app, server, io };
