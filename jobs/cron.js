@@ -26,19 +26,19 @@ cron.schedule("* * * * *", async () => {
 
         // Ensure array exists
         const sentIds = new Set(
-          (pref.sentNewsIds || []).map((id) => id.toString())
+          (pref.sentNewsIds || []).map((id) => id.toString()),
         );
 
         // Match news by category
         const matchedNews = adminNews.filter((news) =>
           (pref.categories || []).some(
-            (cat) => cat.toLowerCase() === news.category.toLowerCase()
-          )
+            (cat) => cat.toLowerCase() === news.category.toLowerCase(),
+          ),
         );
 
         // Filter only unsent news
         const newNews = matchedNews.filter(
-          (news) => !sentIds.has(news._id.toString())
+          (news) => !sentIds.has(news._id.toString()),
         );
 
         if (!newNews.length) continue;
@@ -62,20 +62,20 @@ cron.schedule("* * * * *", async () => {
           userEmail,
           pref.userId.name,
           "Your Personalized News Feed",
-          safeNews
+          safeNews,
         );
 
         // 2. SOCKET NOTIFICATION
         io.to(userId).emit("new-notification", {
-          title: "Breaking News",
-          message: newNews[0]?.title || "New news available",
+          title: newNews[0]?.title || "New news available",
+          message: newNews[0]?.description || newNews[0]?.title,
           news: safeNews,
         });
 
         // 3. ALERT DB
         await Alert.create({
           userId,
-          title: `Breaking News (${newNews.length})`,
+          title: newNews[0]?.title || "News Update",
           description: newNews[0]?.title || "New updates available",
           link: newNews[0]?.link || "",
           categories: pref.categories || [],
@@ -89,7 +89,7 @@ cron.schedule("* * * * *", async () => {
             $addToSet: {
               sentNewsIds: { $each: newNews.map((n) => n._id.toString()) },
             },
-          }
+          },
         );
 
         console.log("Sent successfully to:", userEmail);

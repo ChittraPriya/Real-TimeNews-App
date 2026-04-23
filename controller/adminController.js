@@ -3,13 +3,26 @@ const Alert = require("../models/alertsModel");
 const News = require("../models/newsModel");
 const Preference = require("../models/preferencesModel");
 const sendEmail = require("../utils/email");
+const alertController = require("./alertController");
 
 const adminController = {
   // CREATE NEWS
   createNews: async (req, res) => {
     const io = req.app.get("io");
     try {
-      const {title,description,category,link,desc1,desc2,desc3,desc4,desc5,desc6,desc7} = req.body;
+      const {
+        title,
+        description,
+        category,
+        link,
+        desc1,
+        desc2,
+        desc3,
+        desc4,
+        desc5,
+        desc6,
+        desc7,
+      } = req.body;
 
       const lower = category?.toLowerCase()?.trim() || "";
 
@@ -48,39 +61,47 @@ const adminController = {
 
         /* ---------------- PUSH NOTIFICATION ---------------- */
         if (userSetting?.notifications?.push) {
-          await Alert.create({
-            userId: p.userId._id,
-            title,
-            description,
-            link,
-            isRead: false,
-            hidden: false,
-          });
+          await alertController.createAlert(
+            {
+              title: news.title,
+              description: news.description,
+              link: news.link,
+            },
+            p.userId._id,
+            [lower],
+          );
 
-          // socket notification
           io.to(p.userId._id.toString()).emit("notification", {
-            title,
-            description,
+            title: title,
+            description: description,
           });
         }
 
         /* ---------------- EMAIL NOTIFICATION ---------------- */
         if (userSetting?.notifications?.email && p.userId.email) {
-          await sendEmail(p.userId.email, p.userId.name, "Breaking News", [
-            {
-              title,
-              description,
-              link,
-              image: req.file ? req.file.filename : "",
-            },
-          ]);
-        }
-      }
+  const imageUrl = req.file
+    ? `${process.env.BASE_URL}/uploads/${req.file.filename}`
+    : "";
 
+  await sendEmail(
+    p.userId.email,
+    p.userId.name,
+    `🚨 ${title}`,
+    [
+      {
+        title,
+        description,
+        link,
+        image: imageUrl,
+      },
+    ]
+  );
+}
+      }
       res.status(201).json({
         message: "News Published Successfully",
         data: news,
-      });
+      })
     } catch (error) {
       console.log("CREATE NEWS ERROR:", error);
       res.status(500).json({

@@ -2,7 +2,7 @@ const Alert = require("../models/alertsModel.js");
 
 const alertController = {
 
-  // CREATE ALERT (USED IN NEWS CONTROLLER / CRON)
+  // CREATE ALERT
   createAlert: async (news, userId, categories = []) => {
     try {
       await Alert.create({
@@ -10,81 +10,82 @@ const alertController = {
         title: news.title,
         description: news.description,
         link: news.link,
-        categories
+        categories,
+        isRead: false,
+        hidden: false
       });
     } catch (error) {
       console.log(error.message);
     }
   },
 
-  // GET ALL ALERTS (ONLY LOGGED USER)
+  // GET ALERTS
   getAlerts: async (req, res) => {
-  try {
+    try {
+      const alerts = await Alert.find({
+        userId: req.user._id,
+        hidden: false
+      }).sort({ createdAt: -1 });
 
-    const alerts = await Alert.find({
-      userId: req.user._id,
-    }).sort({ createdAt: -1 });
+      res.status(200).json({
+        total: alerts.length,
+        alerts
+      });
 
-    res.status(200).json({
-      total: alerts.length,
-      alerts
-    });
+    } catch (error) {
+      res.status(500).json({
+        message: "Error fetching alerts"
+      });
+    }
+  },
 
-  } catch (error) {
-    res.status(500).json({
-      message: "Error fetching alerts",
-      error: error.message
-    });
-  }
-},
-  // MARK ONE AS READ
+  // MARK ONE READ
   markAsRead: async (req, res) => {
     try {
       const updated = await Alert.findByIdAndUpdate(
         req.params.id,
         { isRead: true },
-        { returnDocument: "after" }
+        { new: true }
       );
 
       res.status(200).json({
-        message: "Alert marked as read",
+        message: "Marked as read",
         alert: updated
       });
 
     } catch (error) {
       res.status(500).json({
-        message: "Failed to update alert",
-        error: error.message
+        message: "Failed"
       });
     }
   },
 
-  // MARK ALL AS READ
+  // MARK ALL READ
   markAllAsRead: async (req, res) => {
     try {
       await Alert.updateMany(
         { userId: req.user._id, isRead: false },
-        { $set: { isRead: false } }
+        { $set: { isRead: true } }
       );
 
       res.status(200).json({
-        message: "All alerts marked as read"
+        message: "All marked read"
       });
 
     } catch (error) {
       res.status(500).json({
-        message: "Failed to mark all as read",
-        error: error.message
+        message: "Failed"
       });
     }
   },
 
-  // UNREAD COUNT (BELL ICON)
+  // UNREAD COUNT
   getUnreadCount: async (req, res) => {
     try {
       const count = await Alert.countDocuments({
         userId: req.user._id,
-        isRead: false
+        isRead: false,
+        hidden: false
       });
 
       res.status(200).json({
@@ -93,69 +94,48 @@ const alertController = {
 
     } catch (error) {
       res.status(500).json({
-        message: "Failed to get unread count",
-        error: error.message
+        message: "Failed"
       });
     }
   },
 
-  // DELETE SINGLE ALERT
+  // DELETE ONE
   deleteSingleAlert: async (req, res) => {
-  try {
-    const alertId = req.params.id;
+    try {
+      await Alert.findByIdAndUpdate(
+        req.params.id,
+        { hidden: true }
+      );
 
-    const result = await Alert.findOneAndUpdate(
-      {
-        _id: alertId,
-        userId: req.user._id
-      },
-      {
-        $set: { hidden: true }
-      },
-      {
-        new: true
-      }
-    );
+      res.status(200).json({
+        message: "Deleted"
+      });
 
-    if (!result) {
-      return res.status(404).json({
-        message: "Alert not found"
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed"
       });
     }
+  },
 
-    return res.status(200).json({
-      message: "Deleted successfully"
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      message: "Delete failed",
-      error: err.message
-    });
-  }
-},
+  // DELETE ALL
   deleteAllAlerts: async (req, res) => {
-  try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({ message: "Unauthorized" });
+    try {
+      await Alert.deleteMany({
+        userId: req.user._id
+      });
+
+      res.status(200).json({
+        message: "All deleted"
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed"
+      });
     }
-
-    const result = await Alert.deleteMany({
-      userId: req.user._id
-    });
-
-    res.status(200).json({
-      message: "All alerts deleted",
-      deletedCount: result.deletedCount
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to delete alerts",
-      error: error.message
-    });
   }
-}
-}
+
+};
 
 module.exports = alertController;
