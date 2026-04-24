@@ -44,10 +44,7 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://realtime-news.netlify.app"
-  ],
+  origin: "*",
   credentials: true
 }));
 
