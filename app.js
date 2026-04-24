@@ -19,8 +19,7 @@ const server = http.createServer(app);
 //Create socket server
 const io = new Server(server, {
   cors: {
-    origin:"*",
-
+    origin:"https://realtime-news.netlify.app",
     credentials: true,
   }
 });
@@ -43,17 +42,17 @@ io.on("connection", (socket) => {
 //Make io accessible everywhere
 app.set("io", io);
 
-app.use(cors({
-  origin: "*",
-  credentials: true
-}));
-
 // app.use(cors({
-//   origin: "https://realtime-news.netlify.app",
-//   credentials: true,
-//   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//   allowedHeaders: ["Content-Type", "Authorization"]
+//   origin: "*",
+//   credentials: true
 // }));
+
+app.use(cors({
+  origin: "https://realtime-news.netlify.app",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
 //middleware to parse the body of incoming request as Json
 app.use(express.json());
