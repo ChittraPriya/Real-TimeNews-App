@@ -19,7 +19,7 @@ const server = http.createServer(app);
 //Create socket server
 const io = new Server(server, {
   cors: {
-    origin:"https://realtime-news.netlify.app",
+    origin:"https://real-timenews.netlify.app",
     credentials: true,
   }
 });
@@ -48,7 +48,7 @@ app.set("io", io);
 // }));
 
 app.use(cors({
-  origin: "https://realtime-news.netlify.app",
+  origin: "https://real-timenews.netlify.app",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
