@@ -6,116 +6,144 @@ const sendEmail = require("../utils/email");
 const alertController = require("./alertController");
 
 const adminController = {
-  // CREATE NEWS
-  createNews: async (req, res) => {
-    const io = req.app.get("io");
-    try{ 
-      
+  // CREATE NEWScreateNews: async (req, res) => {
+  const io = req.app.get("io");
+
+  try {
     console.log("BODY:");
-console.dir(req.body, { depth: null });
+    console.dir(req.body, { depth: null });
 
-console.log("FILE:");
-console.dir(req.file, { depth: null });
+    console.log("FILE:");
+    console.dir(req.file, { depth: null });
 
-      const {
-        title,
-        description,
-        category,
-        link,
-        desc1,
-        desc2,
-        desc3,
-        desc4,
-        desc5,
-        desc6,
-        desc7,
-      } = req.body;
+    const {
+      title,
+      description,
+      category,
+      link,
+      desc1,
+      desc2,
+      desc3,
+      desc4,
+      desc5,
+      desc6,
+      desc7,
+    } = req.body;
 
-      const imageUrl = req.file?.path || req.file?.secure_url || "";
-
-      const lower = category?.toLowerCase()?.trim() || "";
-
-      const news = await News.create({
-        title: title || "",
-        description: description || "",
-        category: lower,
-        link: link || "",
-        source: "admin",
-
-        // image upload
-        // image: imageUrl,
-
-        // coverage fields
-        desc1: req.body.desc1 || "",
-        desc2: req.body.desc2 || "",
-        desc3: req.body.desc3 || "",
-        desc4: req.body.desc4 || "",
-        desc5: req.body.desc5 || "",
-        desc6: req.body.desc6 || "",
-        desc7: req.body.desc7 || "",
+    // Validate required fields
+    if (!title || !category) {
+      return res.status(400).json({
+        message: "Title and category are required",
       });
+    }
 
-      // find matching users
-      const prefs = await Preference.find({
+    const imageUrl = req.file?.path || req.file?.secure_url || "";
+
+    const lower = category.toLowerCase().trim();
+
+    // Save news
+    const news = await News.create({
+      title: title || "",
+      description: description || "",
+      category: lower,
+      link: link || "",
+      source: "admin",
+      image: imageUrl,
+
+      desc1: desc1 || "",
+      desc2: desc2 || "",
+      desc3: desc3 || "",
+      desc4: desc4 || "",
+      desc5: desc5 || "",
+      desc6: desc6 || "",
+      desc7: desc7 || "",
+    });
+
+    // Find matching users
+    let prefs = [];
+    try {
+      prefs = await Preference.find({
         categories: { $in: [lower] },
       }).populate("userId");
+    } catch (dbErr) {
+      console.log("Preference fetch error:", dbErr.message);
+    }
 
-      for (const p of prefs) {
+    // Loop safely
+    for (const p of prefs) {
+      try {
         if (!p.userId) continue;
 
-        // get user settings
         const userSetting = await Preference.findOne({
           userId: p.userId._id,
         });
 
         /* ---------------- PUSH NOTIFICATION ---------------- */
         if (userSetting?.notifications?.push) {
-          await alertController.createAlert(
-            {
+          try {
+            await alertController.createAlert({
+              userId: p.userId._id,
               title: news.title,
               description: news.description,
               link: news.link,
-            },
-            p.userId._id,
-            [lower],
-          );
+              categories: [lower],
+            });
+          } catch (alertErr) {
+            console.log("ALERT ERROR:", alertErr.message);
+          }
 
-          io.to(p.userId._id.toString()).emit("notification", {
-            title: title,
-            description: description,
-          });
+          // SOCKET SAFE EMIT
+          if (io) {
+            io.to(p.userId._id.toString()).emit("notification", {
+              title: news.title,
+              description: news.description,
+            });
+          }
         }
 
         /* ---------------- EMAIL NOTIFICATION ---------------- */
-        if (userSetting?.notifications?.email && p.userId.email) {
-          try{
-          await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
-            {
-              title,
-              description,
-              link,
-              image: imageUrl,
-            },
-          ]);
-        } catch(mailError) {
-             console.log("EMAIL ERROR:");
-             console.dir(mailError, { depth: null });
+        if (
+          userSetting?.notifications?.email &&
+          p.userId.email
+        ) {
+          try {
+            await sendEmail(
+              p.userId.email,
+              p.userId.name,
+              `🚨 ${title}`,
+              [
+                {
+                  title,
+                  description,
+                  link,
+                  image: imageUrl,
+                },
+              ]
+            );
+          } catch (mailError) {
+            console.log("EMAIL ERROR:", mailError.message);
+          }
         }
+      } catch (userErr) {
+        console.log("USER LOOP ERROR:", userErr.message);
       }
     }
-      res.status(201).json({
-        message: "News Published Successfully",
-        data: news,
-      });
-    } catch (error) {
-  console.log("CREATE NEWS ERROR:");
-  console.dir(error, { depth: null });
 
-  res.status(500).json({
-    message: error.message || "Failed to publish news"
-  });
-    }
-  },
+    return res.status(201).json({
+      message: "News Published Successfully",
+      data: news,
+    });
+
+  } catch (error) {
+    console.log("CREATE NEWS ERROR:");
+    console.log(error);
+    console.log(error?.stack);
+
+    return res.status(500).json({
+      message: error.message || "Failed to publish news",
+    });
+  }
+},
   // USERS
   getUsers: async (req, res) => {
     try {
