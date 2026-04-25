@@ -6,7 +6,8 @@ const sendEmail = require("../utils/email");
 const alertController = require("./alertController");
 
 const adminController = {
-  // CREATE NEWScreateNews: async (req, res) => {
+  // CREATE NEWS
+  createNews: async (req, res) => {
   const io = req.app.get("io");
 
   try {
