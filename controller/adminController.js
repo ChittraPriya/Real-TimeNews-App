@@ -9,13 +9,14 @@ const adminController = {
   // CREATE NEWS
   createNews: async (req, res) => {
     const io = req.app.get("io");
-
+    try{ 
+      
     console.log("BODY:");
 console.dir(req.body, { depth: null });
 
 console.log("FILE:");
 console.dir(req.file, { depth: null });
-    try {
+
       const {
         title,
         description,
@@ -30,7 +31,7 @@ console.dir(req.file, { depth: null });
         desc7,
       } = req.body;
 
-      const imageUrl = req.file?.path;
+      const imageUrl = req.file?.path || req.file?.secure_url || "";
 
       const lower = category?.toLowerCase()?.trim() || "";
 
@@ -87,7 +88,8 @@ console.dir(req.file, { depth: null });
 
         /* ---------------- EMAIL NOTIFICATION ---------------- */
         if (userSetting?.notifications?.email && p.userId.email) {
-          const imageUrl = req.file?.path || "";
+          try{
+          const imageUrl = req.file?.path || req.file?.secure_url || "";
 
           await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
             {
@@ -97,8 +99,12 @@ console.dir(req.file, { depth: null });
               image: imageUrl,
             },
           ]);
+        } catch(mailError) {
+             console.log("EMAIL ERROR:");
+             console.dir(mailError, { depth: null });
         }
       }
+    }
       res.status(201).json({
         message: "News Published Successfully",
         data: news,
