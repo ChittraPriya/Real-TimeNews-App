@@ -51,10 +51,7 @@ cron.schedule("* * * * *", async () => {
           description: n.description,
           link: n.link,
           category: n.category,
-          image:
-            typeof n.image === "string" && n.image
-              ? `${process.env.BASE_URL}/uploads/${n.image}`
-              : null,
+          image:  n.image || null,
         }));
 
         // 1. SEND EMAIL
