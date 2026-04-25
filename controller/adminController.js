@@ -43,7 +43,7 @@ console.dir(req.file, { depth: null });
         source: "admin",
 
         // image upload
-        image: imageUrl,
+        // image: imageUrl,
 
         // coverage fields
         desc1: req.body.desc1 || "",
