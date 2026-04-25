@@ -9,6 +9,12 @@ const adminController = {
   // CREATE NEWS
   createNews: async (req, res) => {
     const io = req.app.get("io");
+
+    console.log("BODY:");
+console.dir(req.body, { depth: null });
+
+console.log("FILE:");
+console.dir(req.file, { depth: null });
     try {
       const {
         title,
@@ -97,11 +103,14 @@ const adminController = {
         message: "News Published Successfully",
         data: news,
       });
-    }  catch(error) {
-      console.log("CREATE NEWS ERROR:", error.message);
-      console.log(error.stack);
-      res.status(500).json({message: error.message});
-    }
+    } catch (error) {
+  console.log("CREATE NEWS ERROR:");
+  console.dir(error, { depth: null });
+
+  res.status(500).json({
+    message: error.message || "Failed to publish news"
+  });
+
   },
   // USERS
   getUsers: async (req, res) => {
