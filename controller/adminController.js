@@ -24,6 +24,8 @@ const adminController = {
         desc7,
       } = req.body;
 
+      const imageUrl = req.file?.path;
+
       const lower = category?.toLowerCase()?.trim() || "";
 
       const news = await News.create({
@@ -34,7 +36,7 @@ const adminController = {
         source: "admin",
 
         // image upload
-        image: req.file ? req.file.filename : "",
+        image: imageUrl,
 
         // coverage fields
         desc1: req.body.desc1 || "",
@@ -79,29 +81,22 @@ const adminController = {
 
         /* ---------------- EMAIL NOTIFICATION ---------------- */
         if (userSetting?.notifications?.email && p.userId.email) {
-  const imageUrl = req.file
-    ? `${process.env.BASE_URL}/uploads/${req.file.filename}`
-    : "";
+          const imageUrl = req.file?.path || "";
 
-  await sendEmail(
-    p.userId.email,
-    p.userId.name,
-    `🚨 ${title}`,
-    [
-      {
-        title,
-        description,
-        link,
-        image: imageUrl,
-      },
-    ]
-  );
-}
+          await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
+            {
+              title,
+              description,
+              link,
+              image: imageUrl,
+            },
+          ]);
+        }
       }
       res.status(201).json({
         message: "News Published Successfully",
         data: news,
-      })
+      });
     } catch (error) {
       console.log("CREATE NEWS ERROR:", error);
       res.status(500).json({
