@@ -97,11 +97,10 @@ const adminController = {
         message: "News Published Successfully",
         data: news,
       });
-    } catch (error) {
-      console.log("CREATE NEWS ERROR:", error);
-      res.status(500).json({
-        message: "Failed to publish news",
-      });
+    }  catch(error) {
+      console.log("CREATE NEWS ERROR:", error.message);
+      console.log(error.stack);
+      res.status(500).json({message: error.message});
     }
   },
   // USERS
