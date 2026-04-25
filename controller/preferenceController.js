@@ -1,4 +1,6 @@
 const Preference = require("../models/preferencesModel.js");
+const News = require("../models/newsModel");
+const sendEmail = require("../utils/email");
 
 const createPreference = async (req, res) => {
   try {
