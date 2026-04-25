@@ -110,7 +110,7 @@ console.dir(req.file, { depth: null });
   res.status(500).json({
     message: error.message || "Failed to publish news"
   });
-
+    }
   },
   // USERS
   getUsers: async (req, res) => {
