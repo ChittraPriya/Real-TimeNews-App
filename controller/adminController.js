@@ -89,8 +89,6 @@ console.dir(req.file, { depth: null });
         /* ---------------- EMAIL NOTIFICATION ---------------- */
         if (userSetting?.notifications?.email && p.userId.email) {
           try{
-          const imageUrl = req.file?.path || req.file?.secure_url || "";
-
           await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
             {
               title,
@@ -172,7 +170,7 @@ console.dir(req.file, { depth: null });
 
       // image update (only if new file uploaded)
       if (req.file) {
-        updateData.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+        updateData.image = req.file?.path || req.file?.secure_url || existing.image;
       }
 
       const updated = await News.findByIdAndUpdate(req.params.id, updateData, {
