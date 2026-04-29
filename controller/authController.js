@@ -67,7 +67,7 @@ const authController = {
       message: "Login Successfully",
       token,
       user: {
-        _id: user._id,
+        id: user._id,
         name: user.name,
         email: user.email,
         role: user.role
@@ -121,7 +121,7 @@ updateEmail: async (req, res) => {
 },
      logout : async(req,res) => {
         try {
-            res.status(200).json({message:"Logout Successfully"})
+            res.status(200).json({message:"Registered Successfully"})
         } catch (error) {
             res.status(500).json({message: "Error for Registering User", error: error.message})
         }

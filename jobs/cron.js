@@ -3,107 +3,93 @@ const News = require("../models/newsModel");
 const Preference = require("../models/preferencesModel");
 const sendEmail = require("../utils/email");
 const Alert = require("../models/alertsModel");
-const { app } = require("../app");
+const { io } = require("../app");
 
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("* * * * *", async () => {
   try {
     console.log("Running News Cron...");
 
-    const io = app.get("io");
-
-    // 🔹 Fetch latest news
+    // Get latest news once
     const adminNews = await News.find().sort({ createdAt: -1 });
 
-    // 🔹 Fetch only users who enabled email notifications
+    // Get users who want email notifications
     const prefs = await Preference.find({
       "notifications.email": true,
     }).populate("userId");
 
     for (const pref of prefs) {
       try {
-        if (!pref.userId || !pref.userId.email) continue;
+        if (!pref.userId) continue;
 
         const userId = pref.userId._id.toString();
         const userEmail = pref.userId.email;
 
+        // Ensure array exists
         const sentIds = new Set(
-          (pref.sentNewsIds || []).map((id) => id.toString())
+          (pref.sentNewsIds || []).map((id) => id.toString()),
         );
 
-        // 🔹 Match category safely
+        // Match news by category
         const matchedNews = adminNews.filter((news) =>
           (pref.categories || []).some(
-            (cat) =>
-              cat?.toLowerCase?.() === news.category?.toLowerCase?.()
-          )
+            (cat) => cat.toLowerCase() === news.category.toLowerCase(),
+          ),
         );
 
-        // 🔹 Only new news
+        // Filter only unsent news
         const newNews = matchedNews.filter(
-          (news) => !sentIds.has(news._id.toString())
+          (news) => !sentIds.has(news._id.toString()),
         );
 
-        if (newNews.length === 0) continue;
+        if (!newNews.length) continue;
 
-        console.log(`Sending to: ${userEmail} | News: ${newNews.length}`);
+        console.log("Sending to:", userEmail);
 
-        // 🔹 Format safe payload
+        // Safe format
         const safeNews = newNews.map((n) => ({
           title: n.title,
           description: n.description,
           link: n.link,
           category: n.category,
-          image: n.image || null,
+          image:  n.image || null,
         }));
 
-        // =========================
-        // 1. EMAIL
-        // =========================
+        // 1. SEND EMAIL
         await sendEmail(
           userEmail,
           pref.userId.name,
           "Your Personalized News Feed",
-          safeNews
+          safeNews,
         );
 
-        // =========================
-        // 2. SOCKET
-        // =========================
-        if (io) {
-          io.to(userId).emit("new-notification", {
-            title: newNews[0]?.title,
-            message: newNews[0]?.description,
-            news: safeNews,
-          });
-        }
+        // 2. SOCKET NOTIFICATION
+        io.to(userId).emit("new-notification", {
+          title: newNews[0]?.title || "New news available",
+          message: newNews[0]?.description || newNews[0]?.title,
+          news: safeNews,
+        });
 
-        // =========================
         // 3. ALERT DB
-        // =========================
         await Alert.create({
           userId,
           title: newNews[0]?.title || "News Update",
-          description: newNews[0]?.description || "New updates available",
+          description: newNews[0]?.title || "New updates available",
           link: newNews[0]?.link || "",
           categories: pref.categories || [],
           type: "news",
         });
 
-        // =========================
-        // 4. SAVE SENT IDS
-        // =========================
+        // 4. ATOMIC UPDATE (prevents duplicates)
         await Preference.updateOne(
           { _id: pref._id },
           {
             $addToSet: {
-              sentNewsIds: {
-                $each: newNews.map((n) => n._id),
-              },
+              sentNewsIds: { $each: newNews.map((n) => n._id.toString()) },
             },
-          }
+          },
         );
 
-        console.log("Sent successfully:", userEmail);
+        console.log("Sent successfully to:", userEmail);
       } catch (userError) {
         console.log("User cron error:", userError.message);
       }

@@ -1,6 +1,4 @@
 const Preference = require("../models/preferencesModel.js");
-const News = require("../models/newsModel");
-const sendEmail = require("../utils/email");
 
 const createPreference = async (req, res) => {
   try {
@@ -12,18 +10,15 @@ const createPreference = async (req, res) => {
       //update existing
       preference.categories = categories;
       preference.frequency = frequency;
-      preference.time = time ?? "08:00";
+      preference.time = time;
 
-      preference.notifications = {
-  email: req.body.notifications?.email ?? false,
-  push: req.body.notifications?.push ?? false,
-};
+      preference.notifications = req.body.notifications;
     } else {
       preference = new Preference({
         userId: req.user._id,
         categories,
         frequency,
-        time: time || "08:00",
+        time,
         notifications: req.body.notifications,
       });
     }
@@ -92,7 +87,7 @@ const updatePreference = async (req, res) => {
       {
         categories,
         frequency,
-        time: time ?? updated.time,
+        time,
         notifications: {
           email: notifications?.email ?? false,
           push: notifications?.push ?? false,

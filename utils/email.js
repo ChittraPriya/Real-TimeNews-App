@@ -35,9 +35,9 @@ const sendEmail = async (to, username, subject, articles = []) => {
         <h3>${a.title || "No title"}</h3>
 
         ${
-          a.image
+          a.image_url
             ? `
-          <img src="${a.image}" 
+          <img src="${a.image_url}" 
                style="width:100%; max-height:200px; object-fit:cover; border-radius:8px;" />
         `
             : ""
@@ -86,7 +86,6 @@ const sendEmail = async (to, username, subject, articles = []) => {
     console.log("Email sent:", info.response);
   } catch (err) {
     console.log("Email error:", err.message);
-    console.dir(err, { depth: null });
   }
 };
 

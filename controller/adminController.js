@@ -4,20 +4,12 @@ const News = require("../models/newsModel");
 const Preference = require("../models/preferencesModel");
 const sendEmail = require("../utils/email");
 const alertController = require("./alertController");
-const cloudinary = require("../utils/cloudinary");
 
 const adminController = {
   // CREATE NEWS
   createNews: async (req, res) => {
     const io = req.app.get("io");
-
     try {
-      console.log("BODY:");
-      console.dir(req.body, { depth: null });
-
-      console.log("FILE:");
-      console.dir(req.file, { depth: null });
-
       const {
         title,
         description,
@@ -32,113 +24,84 @@ const adminController = {
         desc7,
       } = req.body;
 
-      // Validate required fields
-      if (!title || !category) {
-        return res.status(400).json({
-          message: "Title and category are required",
-        });
-      }
+      const imageUrl = req.file?.path;
 
-      const imageUrl = req.file?.path || req.file?.secure_url || "";
+      const lower = category?.toLowerCase()?.trim() || "";
 
-      console.log("REQ FILE CHECK:", req.file);
-      console.log("IMAGE URL:", imageUrl);
-
-      const lower = category.toLowerCase().trim();
-
-      // Save news
       const news = await News.create({
         title: title || "",
         description: description || "",
         category: lower,
         link: link || "",
         source: "admin",
+
+        // image upload
         image: imageUrl,
 
-        desc1: desc1 || "",
-        desc2: desc2 || "",
-        desc3: desc3 || "",
-        desc4: desc4 || "",
-        desc5: desc5 || "",
-        desc6: desc6 || "",
-        desc7: desc7 || "",
+        // coverage fields
+        desc1: req.body.desc1 || "",
+        desc2: req.body.desc2 || "",
+        desc3: req.body.desc3 || "",
+        desc4: req.body.desc4 || "",
+        desc5: req.body.desc5 || "",
+        desc6: req.body.desc6 || "",
+        desc7: req.body.desc7 || "",
       });
 
-      // Find matching users
-      let prefs = [];
-      try {
-        prefs = await Preference.find({
-          categories: { $in: [lower] },
-        }).populate("userId");
-      } catch (dbErr) {
-        console.log("Preference fetch error:", dbErr.message);
-      }
+      // find matching users
+      const prefs = await Preference.find({
+        categories: { $in: [lower] },
+      }).populate("userId");
 
-      // Loop safely
       for (const p of prefs) {
-        try {
-          if (!p.userId) continue;
+        if (!p.userId) continue;
 
-          const userSetting = await Preference.findOne({
-            userId: p.userId._id,
+        // get user settings
+        const userSetting = await Preference.findOne({
+          userId: p.userId._id,
+        });
+
+        /* ---------------- PUSH NOTIFICATION ---------------- */
+        if (userSetting?.notifications?.push) {
+          await alertController.createAlert(
+            {
+              title: news.title,
+              description: news.description,
+              link: news.link,
+            },
+            p.userId._id,
+            [lower],
+          );
+
+          io.to(p.userId._id.toString()).emit("notification", {
+            title: title,
+            description: description,
           });
+        }
 
-          /* ---------------- PUSH NOTIFICATION ---------------- */
-          if (userSetting?.notifications?.push) {
-            try {
-              await alertController.createAlert({
-                userId: p.userId._id,
-                title: news.title,
-                description: news.description,
-                link: news.link,
-                categories: [lower],
-              });
-            } catch (alertErr) {
-              console.log("ALERT ERROR:", alertErr.message);
-            }
+        /* ---------------- EMAIL NOTIFICATION ---------------- */
+        if (userSetting?.notifications?.email && p.userId.email) {
+          const imageUrl = req.file?.path || "";
 
-            // SOCKET SAFE EMIT
-            if (io) {
-              io.to(p.userId._id.toString()).emit("notification", {
-                title: news.title,
-                description: news.description,
-              });
-            }
-          }
-
-          /* ---------------- EMAIL NOTIFICATION ---------------- */
-          if (userSetting?.notifications?.email && p.userId.email) {
-            try {
-              await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
-                {
-                  title,
-                  description,
-                  link,
-                  image: imageUrl || " ",
-                },
-              ]);
-            } catch (mailError) {
-              console.log("EMAIL ERROR:", mailError.message);
-            }
-          }
-        } catch (userErr) {
-          console.log("USER LOOP ERROR:", userErr.message);
+          await sendEmail(p.userId.email, p.userId.name, `🚨 ${title}`, [
+            {
+              title,
+              description,
+              link,
+              image: imageUrl,
+            },
+          ]);
         }
       }
-
-      return res.status(201).json({
+      res.status(201).json({
         message: "News Published Successfully",
         data: news,
       });
-    } catch (error) {
-  console.log("CREATE NEWS ERROR:", error);
-  console.log(error?.stack);
-
-  return res.status(500).json({
-    message: error.message,
-    error: error.stack,
-  });
-}
+    }  catch(error) {
+      console.log("CREATE NEWS ERROR:", error.message);
+      console.log(error.stack);
+      res.status(500).json({message: error.message});
+    }
   },
   // USERS
   getUsers: async (req, res) => {
@@ -194,8 +157,7 @@ const adminController = {
 
       // image update (only if new file uploaded)
       if (req.file) {
-        updateData.image =
-          req.file?.path || req.file?.secure_url || existing.image;
+        updateData.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
       }
 
       const updated = await News.findByIdAndUpdate(req.params.id, updateData, {
