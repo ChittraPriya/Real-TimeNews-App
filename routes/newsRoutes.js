@@ -2,7 +2,6 @@ const express = require('express');
 const { isAuthenticated } = require('../middleware/auth');
 const { getUserNews, getAllNews, getSingleNews } = require('../controller/newsController');
 const { isAdmin } = require('../middleware/admin');
-const upload = require('../middleware/multer');
 
 
 const newsRouter = express.Router();

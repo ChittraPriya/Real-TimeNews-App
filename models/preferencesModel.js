@@ -14,6 +14,11 @@ const preferenceModel = new mongoose.Schema(
       enum: ["instant", "hourly", "daily"],
       default: "daily",
     },
+    
+    time: {
+      type: String,
+      default: "08:00",
+    },
 
     notifications: {
       email: Boolean,

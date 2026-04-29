@@ -1,24 +1,22 @@
 const express = require("express");
 const cors = require("cors");
-const authRouter = require("./routes/authRouter");
 const cookieParser = require("cookie-parser");
+
+const authRouter = require("./routes/authRouter");
 const preferenceRouter = require("./routes/preferenceRoute");
 const newsRouter = require("./routes/newsRoutes");
 const alertRouter = require("./routes/alertRoutes");
 const adminRouter = require("./routes/adminRoutes");
-const http = require("http");
 const dashboardRouter = require("./routes/dashboardRoute");
-const path = require("path");
 
+const http = require("http");
 const setupSocket = require("./socket/socket");
 
 const app = express();
 const server = http.createServer(app);
 
-// ONLY ONE SOCKET INSTANCE
+// socket
 const io = setupSocket(server);
-
-// make io available globally
 app.set("io", io);
 
 // middleware
@@ -37,8 +35,6 @@ app.use(cookieParser());
 app.get("/", (req, res) => {
   res.send("News Backend is running");
 });
-
-app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/admin", adminRouter);
