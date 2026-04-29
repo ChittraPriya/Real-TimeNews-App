@@ -12,15 +12,18 @@ const createPreference = async (req, res) => {
       //update existing
       preference.categories = categories;
       preference.frequency = frequency;
-      preference.time = time;
+      preference.time = time ?? "08:00";
 
-      preference.notifications = req.body.notifications;
+      preference.notifications = {
+  email: req.body.notifications?.email ?? false,
+  push: req.body.notifications?.push ?? false,
+};
     } else {
       preference = new Preference({
         userId: req.user._id,
         categories,
         frequency,
-        time,
+        time: time || "08:00",
         notifications: req.body.notifications,
       });
     }
@@ -89,7 +92,7 @@ const updatePreference = async (req, res) => {
       {
         categories,
         frequency,
-        time,
+        time: time ?? updated.time,
         notifications: {
           email: notifications?.email ?? false,
           push: notifications?.push ?? false,
